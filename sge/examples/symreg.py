@@ -42,6 +42,8 @@ class SymbolicRegression():
         self.__number_of_variables = len(self.__train_set[0]) - 1
 
     def readpolynomial(self):
+        def polynomial(inp):
+            return pow(inp, 2) + inp + 1
         def quarticpolynomial(inp):
             return pow(inp,4) + pow(inp,3) + pow(inp,2) + inp
 
@@ -123,10 +125,11 @@ class SymbolicRegression():
             test_error = self.get_error(individual, self.__test_set)
             test_error = _sqrt_( test_error / float(self.__RRSE_test_denominator))
 
+        # print(error, individual)
         return error, {'generation': 0, "evals": 1, "test_error": test_error}
 
 
 if __name__ == "__main__":
     import sge
-    eval_func = SymbolicRegression()
-    sge.evolutionary_algorithm(evaluation_function=eval_func, parameters_file="parameters/standard.yml")
+    eval_func = SymbolicRegression(function="polynomial")
+    sge.evolutionary_algorithm(evaluation_function=eval_func, parameters_file="parameters/regression.yml")
