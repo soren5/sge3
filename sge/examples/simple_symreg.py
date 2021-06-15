@@ -19,7 +19,7 @@ class SimpleSymbolicRegression():
             func = locals_code['result']
             self.x_evals = np.apply_along_axis(func, 0, self.x_points)
             error = np.sum(np.sqrt(np.square(self.x_evals - self.y_points)))
-            print(individual, " ", error)
+            #print(individual, " ", error)
         except (OverflowError, ValueError) as e:
             error = self.invalid_fitness
         if np.isnan(error):
