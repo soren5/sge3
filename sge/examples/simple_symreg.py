@@ -29,4 +29,4 @@ class SimpleSymbolicRegression():
 
 if __name__ == "__main__":
     fitness = SimpleSymbolicRegression()
-    sge.evolutionary_algorithm(evaluation_function=fitness, parameters_file="parameters/standard.yml")
+    sge.evolutionary_algorithm(evaluation_function=fitness, parameters_file="parameters/regression.yml")
