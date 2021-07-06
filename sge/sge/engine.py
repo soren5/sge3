@@ -21,6 +21,7 @@ from sge.parameters import (
 )
 creation_attempts = 0
 print_assistant = 1
+
 def retry_counter():
     global creation_attempts, print_assistant
     if creation_attempts % print_assistant == 0:
@@ -115,6 +116,8 @@ class SearchSpace:
         self.population = list(population_generation_function(self))
         
     def check_propagate_fitness(self, fitness):
+        #Use unique evaluations
+        #Use number of rejections
         self.total_evaluations += 1
         self.total_fitness += fitness
         self.total_distance_from_average += abs(self.total_fitness / self.total_evaluations - fitness)
@@ -147,88 +150,111 @@ def create_explore_dictionary(exploit_dictionary, grammar_options_list):
 
 def evolutionary_algorithm(evaluation_function=None, parameters_file=None):
     global creation_attempts
-    for _ in range(30):
-        creation_attempts = 0
-        setup(parameters_file_path=parameters_file)
-        random.seed(_)
-        grammar_options_list = [
-            {0},
-            {0, 1, 2},
-            {0, 1, 2},
-            {0, 1},
-        ]
-        history = {}
-        current_search_space = SearchSpace(None, None, None, 0, None)
-        search_space_list = [current_search_space]
-        population = list(make_initial_population(current_search_space))
-        current_search_space.population = population
-        it = 0
-        evals = 0
-        perfect_solution_found = False
-        while not perfect_solution_found:
-            for ix in range(len(population)):
-                string_genotype = str(population[ix]['genotype'])
-                if string_genotype in history:
-                    population[ix] = history[string_genotype]
-                if population[ix]['fitness'] is None:
-                    evaluate(population[ix], evaluation_function)
-                    current_search_space.check_propagate_fitness(population[ix]['fitness'])
-                    evals += 1
-                    if population[ix]['fitness'] == 0:
-                        print("[", evals, ",", it, ",", creation_attempts, "]")
-                        perfect_solution_found = True
-                    history[string_genotype] = population[ix]
-                
-                #print(population[ix]['genotype'], population[ix]['fitness'])
-            population.sort(key=lambda x: x['fitness'])
 
 
-            #logger.evolution_progress(it, population)
-            new_population = population[:params['ELITISM']]
-            while len(new_population) < params['POPSIZE']:
-                random_value = random.random()
-                attempt_counter = 0
-                while True:
-                    if  random_value < params['PROB_CROSSOVER']:
-                        p1 = tournament(population, params['TSIZE'])
-                        p2 = tournament(population, params['TSIZE'])
-                        ni = crossover(p1, p2)
+    generations_for_reset_options = [5,10,25,50]
+    random_restart_options = [False, True]
+    keep_best_options = [False, True]
+    subspace_search = False
 
-                    else:
-                        ni = tournament(population, params['TSIZE'])
-                    ni = mutate(ni, params['PROB_MUTATION'])
-                    if current_search_space.check_individual(ni):
-                        break
-                new_population.append(ni)
-            population = new_population
-            current_search_space.population = population
-            it += 1
-            if it > 10000:
-                perfect_solution_found = True
-                print("[", evals, ",", it, ",", creation_attempts, "]")
-            if it % 5 == 0: 
-                population = list(make_initial_population(current_search_space))
-            """
-            if it % 5 == 0:
-                exploit_dictionary = create_exploit_dictionary(population)
-                explore_dictionary = create_explore_dictionary(exploit_dictionary, grammar_options_list)
-                
-                other_search_space = SearchSpace(exploit_dictionary, None, current_search_space, current_search_space.depth + 1, []) 
-                other_search_space.initialize_population(make_initial_population)
-                #for i in population:
-                #    other_search_space.check_propagate_fitness(i['fitness'])
+    with open('/Users/soren/Work/sge3/sge/sge/results.csv', 'a') as f:
+        print("Seed, Generations, Random Restart, Keep Best, Evaluations, Unique Evaluations, Iteration, Rejections", file=f)
+    print("Seed, Generations, Random Restart, Keep Best, Evaluations, Unique Evaluations, Iteration, Rejections")
+    for generations_for_reset in generations_for_reset_options:
+        for _ in range(30):
+            for random_restart in random_restart_options:
+                for keep_best in keep_best_options:
+                    if not (keep_best and not random_restart):
+                        creation_attempts = 0
+                        setup(parameters_file_path=parameters_file)
+                        random.seed(_)
+                        grammar_options_list = [
+                            {0},
+                            {0, 1, 2},
+                            {0, 1, 2},
+                            {0, 1},
+                        ]
+                        history = {}
+                        current_search_space = SearchSpace(None, None, None, 0, None)
+                        search_space_list = [current_search_space]
+                        population = list(make_initial_population(current_search_space))
+                        current_search_space.population = population
+                        it = 0
+                        unique_evals = 0
+                        evals = 0
+                        perfect_solution_found = False
+                        while not perfect_solution_found:
+                            for ix in range(len(population)):
+                                string_genotype = str(population[ix]['genotype'])
+                                evals += 1
+                                if string_genotype in history:
+                                    population[ix] = history[string_genotype]
+                                if population[ix]['fitness'] is None:
+                                    evaluate(population[ix], evaluation_function)
+                                    current_search_space.check_propagate_fitness(population[ix]['fitness'])
+                                    unique_evals += 1
+                                    if population[ix]['fitness'] == 0:
+                                        with open('/Users/soren/Work/sge3/sge/sge/results.csv', 'a') as f:
+                                            print(_, generations_for_reset, ", ", random_restart, ", ", keep_best, ", ", evals, ",", unique_evals, ",", it, ",", creation_attempts, file=f)
+                                        print(_, generations_for_reset, ", ", random_restart, ", ", keep_best, ", ", evals, ",", unique_evals, ",", it, ",", creation_attempts)
+                                        perfect_solution_found = True
+                                    history[string_genotype] = population[ix]
+                                
+                                #print(population[ix]['genotype'], population[ix]['fitness'])
+                            population.sort(key=lambda x: x['fitness'])
 
-                if current_search_space.restriction_dictionaries != None:
-                    restriction_dictionaries = [x for x in current_search_space.restriction_dictionaries]
-                    restriction_dictionaries.append(explore_dictionary)
-                else:
-                    restriction_dictionaries = [explore_dictionary]
-                new_search_space = SearchSpace(current_search_space.search_dictionary, restriction_dictionaries, current_search_space, current_search_space.depth + 1, [])
-                new_search_space.initialize_population(make_initial_population)
 
-                search_space_list.append(new_search_space)
-                search_space_list.append(other_search_space)
-                current_search_space = new_search_space
-                population = current_search_space.population
-            """
+                            #logger.evolution_progress(it, population)
+                            new_population = population[:params['ELITISM']]
+                            while len(new_population) < params['POPSIZE']:
+                                random_value = random.random()
+                                attempt_counter = 0
+                                while True:
+                                    if  random_value < params['PROB_CROSSOVER']:
+                                        p1 = tournament(population, params['TSIZE'])
+                                        p2 = tournament(population, params['TSIZE'])
+                                        ni = crossover(p1, p2)
+
+                                    else:
+                                        ni = tournament(population, params['TSIZE'])
+                                    ni = mutate(ni, params['PROB_MUTATION'])
+                                    if current_search_space.check_individual(ni):
+                                        break
+                                new_population.append(ni)
+                            best_individual = population[0]
+                            population = new_population
+                            current_search_space.population = population
+                            it += 1
+                            if it > 10000:
+                                perfect_solution_found = True
+                                with open('/Users/soren/Work/sge3/sge/sge/results.csv', 'a') as f:
+                                    print(_, generations_for_reset, ", ", random_restart, ", ", keep_best, ", ", evals, ",", unique_evals, ",", it, ",", creation_attempts, file=f)
+                                print(_, generations_for_reset, ", ", random_restart, ", ", keep_best, ", ", evals, ",", unique_evals, ",", it, ",", creation_attempts)
+                                
+                            if it % generations_for_reset == 0:
+                                if random_restart:
+                                    population = list(make_initial_population(current_search_space))
+                                    if keep_best:
+                                        population[0] = best_individual
+                                if subspace_search:
+                                    exploit_dictionary = create_exploit_dictionary(population)
+                                    explore_dictionary = create_explore_dictionary(exploit_dictionary, grammar_options_list)
+                                    
+                                    other_search_space = SearchSpace(exploit_dictionary, None, current_search_space, current_search_space.depth + 1, []) 
+                                    other_search_space.initialize_population(make_initial_population)
+                                    #for i in population:
+                                    #    other_search_space.check_propagate_fitness(i['fitness'])
+
+                                    if current_search_space.restriction_dictionaries != None:
+                                        restriction_dictionaries = [x for x in current_search_space.restriction_dictionaries]
+                                        restriction_dictionaries.append(explore_dictionary)
+                                    else:
+                                        restriction_dictionaries = [explore_dictionary]
+                                    new_search_space = SearchSpace(current_search_space.search_dictionary, restriction_dictionaries, current_search_space, current_search_space.depth + 1, [])
+                                    new_search_space.initialize_population(make_initial_population)
+
+                                    search_space_list.append(new_search_space)
+                                    search_space_list.append(other_search_space)
+                                    current_search_space = new_search_space
+                                    population = current_search_space.population
 
