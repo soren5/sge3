@@ -131,5 +131,5 @@ class SymbolicRegression():
 
 if __name__ == "__main__":
     import sge
-    eval_func = SymbolicRegression(function="polynomial")
+    eval_func = SymbolicRegression()
     sge.evolutionary_algorithm(evaluation_function=eval_func, parameters_file="parameters/regression.yml")
